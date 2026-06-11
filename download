@@ -1,0 +1,864 @@
+import React, { useState, useEffect } from "react";
+
+const TIMELINES = ["30 days", "60 days", "90 days", "6 months", "12 months"];
+const SEGMENTS = ["SMB", "Mid-market", "Enterprise", "Public sector"];
+const SEGMENT_INFO = {
+  "SMB": "Under ~100 employees. Few stakeholders, limited IT. Fast, lightweight rollout with minimal governance.",
+  "Mid-market": "~100\u20131,000 employees. Dedicated IT and real process, but decisions still move quickly. Structured yet nimble.",
+  "Enterprise": "1,000+ employees. Multiple departments, security reviews, legacy integrations. Formal phase gates and steering committees.",
+  "Public sector": "Government and agencies. Compliance layers, rigid procurement, fixed budget cycles. Slower but predictable.",
+};
+const MODELS = ["B2B SaaS", "Logistics / Supply chain", "Healthcare", "Fintech", "E-commerce", "Professional services", "Other"];
+const CUSTOM_OPTION = "Custom (type your own)...";
+const PRODUCTS_BY_INDUSTRY = {
+  "B2B SaaS": [
+    "CRM platform rollout",
+    "Customer onboarding program",
+    "Business intelligence / analytics platform",
+    "AI assistant deployment",
+    "Single sign-on / identity rollout",
+    "Subscription billing migration",
+  ],
+  "Logistics / Supply chain": [
+    "Ocean shipping implementation",
+    "Air freight implementation",
+    "Drayage operations setup",
+    "Transportation management system (TMS)",
+    "Warehouse management system (WMS)",
+    "Freight visibility platform",
+    "Customs / trade compliance system",
+    "Last-mile delivery platform",
+    "Yard management system",
+  ],
+  "Healthcare": [
+    "EHR migration",
+    "Patient scheduling platform",
+    "Telehealth platform launch",
+    "Patient portal rollout",
+    "Claims processing system",
+    "Care management platform",
+  ],
+  "Fintech": [
+    "Payment processing integration",
+    "Digital banking platform",
+    "KYC / AML compliance system",
+    "Fraud detection platform",
+    "Loan origination system",
+  ],
+  "E-commerce": [
+    "E-commerce platform launch",
+    "Order management system (OMS)",
+    "Returns management system",
+    "Marketplace integration",
+    "Loyalty program platform",
+  ],
+  "Professional services": [
+    "CRM platform rollout",
+    "Professional services automation (PSA) tool",
+    "Time & billing system",
+    "Document management system",
+    "Client portal rollout",
+  ],
+  "Other": [
+    "ERP migration",
+    "CRM platform rollout",
+    "Business intelligence / analytics platform",
+    "AI assistant deployment",
+    "Customer onboarding program",
+  ],
+};
+const productsFor = (industry) => [...(PRODUCTS_BY_INDUSTRY[industry] || PRODUCTS_BY_INDUSTRY["Other"]), CUSTOM_OPTION];
+const GENERAL_CONSTRAINTS = [
+  "Limited customer IT resources",
+  "Tight budget, no scope buffer",
+  "Distributed team across time zones",
+];
+const CONSTRAINTS_BY_INDUSTRY = {
+  "B2B SaaS": ["Security / SSO review required before launch", "Data migration from legacy CRM", "Adoption targets tied to renewal"],
+  "Logistics / Supply chain": ["Hard go-live before peak season", "Multiple sites / phased regional rollout", "Carrier and EDI onboarding dependencies", "Customs compliance deadlines"],
+  "Healthcare": ["HIPAA compliance review required", "Go-live cannot disrupt patient care", "Legacy EHR running in parallel", "Clinical staff availability limited"],
+  "Fintech": ["PCI-DSS / regulatory audit required", "KYC / AML signoff before launch", "Zero-downtime cutover required"],
+  "E-commerce": ["Peak season code freeze (Black Friday)", "Marketplace API dependencies", "SEO and traffic continuity required"],
+  "Professional services": ["Billable utilization limits team availability", "Client data confidentiality review", "Partner signoff required at each gate"],
+  "Other": ["Legacy system running in parallel", "Strict compliance / regulatory requirements"],
+};
+const constraintsFor = (industry) => ["None", ...(CONSTRAINTS_BY_INDUSTRY[industry] || CONSTRAINTS_BY_INDUSTRY["Other"]), ...GENERAL_CONSTRAINTS, CUSTOM_OPTION];
+const LOADING_LINES = [
+  "Scoping workstreams...",
+  "Sequencing phases and milestones...",
+  "Assigning the RACI...",
+  "Stress-testing the risk register...",
+  "Setting the comms cadence...",
+];
+
+const SAMPLE_PLAN = {
+  plan_title: "TMS Rollout: 90-Day Mid-Market Implementation",
+  executive_summary: "A four-phase rollout that frontloads requirements and integration risk, then validates with a pilot lane before full cutover. Success hinges on early carrier data readiness and a disciplined UAT exit gate.",
+  phases: [
+    { name: "Discovery & Design", duration: "Wk 1-3", objective: "Lock requirements, integration map, and success criteria.", key_activities: ["Stakeholder kickoff and RACI signoff", "Current-state process mapping", "Integration and data audit"], exit_criteria: "Signed requirements doc and integration spec" },
+    { name: "Build & Configure", duration: "Wk 4-7", objective: "Configure the platform and stand up integrations.", key_activities: ["Core platform configuration", "Carrier and ERP integrations", "Data migration dry run"], exit_criteria: "All integrations passing in test environment" },
+    { name: "Pilot & UAT", duration: "Wk 8-10", objective: "Validate end-to-end on a live pilot lane.", key_activities: ["Pilot lane go-live", "Structured UAT with scorecard", "Defect triage and fixes"], exit_criteria: "UAT signoff, zero critical defects" },
+    { name: "Cutover & Hypercare", duration: "Wk 11-13", objective: "Full go-live with stabilization support.", key_activities: ["Production cutover", "User training completion", "Daily hypercare standups"], exit_criteria: "Steady-state ops, handover to support" },
+  ],
+  raci: [
+    { workstream: "Platform config", responsible: "Solution consultant", accountable: "Implementation PM", consulted: "Customer ops lead", informed: "Exec sponsor" },
+    { workstream: "Integrations", responsible: "Integration engineer", accountable: "Implementation PM", consulted: "Customer IT", informed: "Exec sponsor" },
+    { workstream: "Data migration", responsible: "Customer IT", accountable: "Customer ops lead", consulted: "Solution consultant", informed: "Implementation PM" },
+    { workstream: "Training & adoption", responsible: "Customer ops lead", accountable: "Customer exec sponsor", consulted: "Implementation PM", informed: "End users" },
+  ],
+  risks: [
+    { risk: "Carrier data not ready", impact: "Pilot delay", mitigation: "Data audit in week 1, escalate gaps immediately" },
+    { risk: "Customer IT bandwidth", impact: "Integration slip", mitigation: "Lock named resources at kickoff" },
+    { risk: "Scope creep in UAT", impact: "Timeline overrun", mitigation: "Change control board, defer non-critical asks" },
+  ],
+  comms_cadence: [
+    { meeting: "Project standup", frequency: "Weekly", audience: "Core project team" },
+    { meeting: "Steering committee", frequency: "Biweekly", audience: "Exec sponsors, PM" },
+    { meeting: "Hypercare standup", frequency: "Daily (post go-live)", audience: "Support, ops, PM" },
+  ],
+};
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --paper: #FAFAF7;
+  --ink: #1B2A4A;
+  --ink-soft: #51607E;
+  --rule: #D8DAD2;
+  --signal: #E8590C;
+  --panel: #FFFFFF;
+}
+* { box-sizing: border-box; }
+.app {
+  min-height: 100vh;
+  background-color: #0E4D92;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640' viewBox='0 0 640 640'%3E%3Cg fill='none' stroke='%23FFFFFF' stroke-opacity='0.30' stroke-width='2' stroke-dasharray='8 8'%3E%3Cpath d='M-20 460 Q 160 320 320 380 T 660 260'/%3E%3Cpath d='M-20 150 Q 200 240 360 160 T 660 220'/%3E%3Cpath d='M40 660 Q 220 460 460 520 T 660 420'/%3E%3Cpath d='M-20 600 Q 120 560 240 600 T 520 580'/%3E%3C/g%3E%3Cg fill='%23FFB45C' fill-opacity='0.85'%3E%3Ccircle cx='320' cy='380' r='6'/%3E%3Ccircle cx='360' cy='160' r='6'/%3E%3Ccircle cx='460' cy='520' r='6'/%3E%3Ccircle cx='240' cy='600' r='6'/%3E%3C/g%3E%3Cg stroke='%23FFFFFF' stroke-opacity='0.40' stroke-width='2' fill='none'%3E%3Cpath d='M300 368 h44 v-12 h-30 l-14 12 z'/%3E%3Cpath d='M312 356 v-8 h6 v8 M324 356 v-8 h6 v8'/%3E%3Cpath d='M438 508 h44 v-12 h-30 l-14 12 z'/%3E%3Cpath d='M450 496 v-8 h6 v8 M462 496 v-8 h6 v8'/%3E%3C/g%3E%3Cg stroke='%23FFFFFF' stroke-opacity='0.32' stroke-width='2' fill='none'%3E%3Cpath d='M80 120 v-70 l50 30 h-50 M80 50 h14 M60 120 h60'/%3E%3Cpath d='M520 320 v-70 l50 30 h-50 M520 250 h14 M500 320 h60'/%3E%3C/g%3E%3Cg stroke='%23FFFFFF' stroke-opacity='0.32' stroke-width='2' fill='none'%3E%3Crect x='140' y='250' width='34' height='14'/%3E%3Crect x='174' y='250' width='34' height='14'/%3E%3Crect x='157' y='236' width='34' height='14'/%3E%3Crect x='480' y='80' width='34' height='14'/%3E%3Crect x='514' y='80' width='34' height='14'/%3E%3Crect x='497' y='66' width='34' height='14'/%3E%3Crect x='60' y='430' width='34' height='14'/%3E%3Crect x='94' y='430' width='34' height='14'/%3E%3C/g%3E%3Cg stroke='%23FFFFFF' stroke-opacity='0.28' fill='none' stroke-width='1.5'%3E%3Ccircle cx='580' cy='560' r='26'/%3E%3Ccircle cx='580' cy='560' r='3'/%3E%3Cpath d='M580 528 v12 M580 580 v12 M548 560 h12 M600 560 h12 M580 534 l6 20 -6 32 -6 -32 z'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(180deg, #0A3D78 0%, #0E4D92 32%, #1B6CA8 68%, #0A3D78 100%);
+  background-size: 640px 640px, 100% 100%;
+  color: var(--ink);
+  font-family: 'Public Sans', sans-serif;
+  padding: 0 16px 72px;
+}
+.wrap { max-width: 920px; margin: 0 auto; }
+.masthead { padding: 48px 0 12px; border-bottom: 3px solid rgba(255,255,255,0.85); }
+.eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.26em; text-transform: uppercase; color: #FFB45C; }
+.title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: clamp(36px, 6.5vw, 60px); line-height: 1.02; margin: 12px 0 10px; color: #FFFFFF; }
+.title .hl { color: #FFB45C; position: relative; white-space: nowrap; }
+.title .hl::after { content: ""; position: absolute; left: 0; right: 0; bottom: 4px; height: 5px; background: linear-gradient(90deg, #E8590C, #FFB45C); border-radius: 3px; opacity: 0.9; }
+.subtitle { color: #CFE6F5; font-size: 16px; max-width: 600px; margin: 0 0 24px; line-height: 1.55; }
+.usecase { border-left: 3px solid #FFB45C; padding: 4px 0 4px 16px; margin: 0 0 26px; max-width: 660px; }
+.uc-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #FFB45C; }
+.usecase p { color: #E4F0F9; font-size: 14px; line-height: 1.65; margin: 7px 0 0; }
+
+.panel {
+  margin-top: 28px; background: var(--panel); border: 1px solid rgba(255,255,255,0.4); border-top: 5px solid var(--signal);
+  border-radius: 10px; padding: 26px; box-shadow: 0 14px 40px rgba(4,24,48,0.45);
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.field { display: flex; flex-direction: column; }
+.field.full { grid-column: 1 / -1; }
+label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 7px; }
+input[type="text"], textarea, select {
+  font-family: 'Public Sans', sans-serif; font-size: 15px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 13px;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
+.hint { margin-top: 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); }
+.btnrow { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.go {
+  flex: 2; min-width: 220px; padding: 16px; border: none; border-radius: 6px; cursor: pointer;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #E8590C 0%, #F2780C 100%); color: #FFFFFF;
+  box-shadow: 0 6px 18px rgba(232,89,12,0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.go:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); box-shadow: 0 9px 24px rgba(232,89,12,0.45); }
+.go.secondary { flex: 1; min-width: 180px; background: transparent; color: var(--ink); border: 2px solid var(--ink); }
+.go.secondary:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); background: transparent; }
+.go:disabled { opacity: 0.55; cursor: wait; }
+.go:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.error { margin-top: 14px; padding: 13px 15px; border: 1px solid var(--signal); border-radius: 4px; background: #FDF1EA; color: #9C3A06; font-size: 14px; }
+
+.shelf { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.shelf-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #CFE6F5; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 280px;
+  background: rgba(255,180,92,0.14); border: 1px solid rgba(255,180,92,0.55); border-radius: 999px;
+  color: #FFFFFF; font-size: 13px; padding: 7px 8px 7px 14px; cursor: pointer;
+  transition: background 0.12s ease;
+}
+.chip:hover { background: rgba(255,180,92,0.28); }
+.chip .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .x {
+  border: none; background: rgba(255,255,255,0.25); color: #FFFFFF; border-radius: 50%;
+  width: 18px; height: 18px; line-height: 1; font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+.chip .x:hover { background: var(--signal); }
+
+.loading { text-align: center; padding: 30px 0 4px; }
+.loadline { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #CFE6F5; }
+.tick { display: inline-block; width: 9px; height: 9px; background: #FFB45C; margin-right: 10px; animation: tick 1.1s steps(2) infinite; vertical-align: middle; }
+@keyframes tick { 50% { opacity: 0.15; } }
+
+.skeleton { margin-top: 24px; background: var(--paper); border-radius: 8px; padding: 32px; }
+.sk { background: linear-gradient(90deg, #E8E8E2 25%, #F2F2EC 50%, #E8E8E2 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.sk.h1 { height: 30px; width: 55%; margin-bottom: 14px; }
+.sk.line { height: 14px; width: 90%; margin-bottom: 9px; }
+.sk.line.short { width: 65%; }
+.sk.block { height: 90px; margin-top: 22px; }
+@media (prefers-reduced-motion: reduce) { .tick, .sk { animation: none; } .go { transition: none; } .rail-phase { animation: none !important; opacity: 1 !important; } }
+
+.report {
+  margin-top: 44px; background: var(--paper); border-radius: 8px;
+  padding: 32px clamp(18px, 4vw, 40px) 28px; box-shadow: 0 8px 32px rgba(4,24,48,0.35);
+}
+.toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: 18px; margin-bottom: 20px; }
+.planhead { border-left: 6px solid var(--signal); padding-left: 18px; }
+.planhead h2 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(24px, 4vw, 34px); margin: 0 0 6px; }
+.planhead .meta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+.toolbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.toolbtn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 4px;
+  padding: 9px 14px; cursor: pointer; white-space: nowrap;
+}
+.toolbtn:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.toolbtn:disabled { opacity: 0.5; cursor: wait; }
+.summary { font-size: 16px; line-height: 1.65; color: var(--ink); margin: 4px 0 0; max-width: 760px; }
+.edithint { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-top: 14px; }
+.edithint b { color: var(--signal); font-weight: 500; }
+
+.editable { cursor: text; border-bottom: 1px dashed transparent; transition: border-color 0.12s; }
+.editable:hover { border-bottom-color: var(--signal); }
+.editinput {
+  font: inherit; color: inherit; background: #FFF8F2; border: 1px solid var(--signal); border-radius: 3px;
+  padding: 2px 6px; width: 100%; max-width: 100%;
+}
+
+.critique { margin-top: 26px; border: 2px solid var(--ink); border-radius: 6px; background: var(--panel); padding: 20px 22px; }
+.critique .chead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.critique h4 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin: 0; flex: 1; }
+.scorering {
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px;
+  border: 3px solid var(--signal); border-radius: 50%; width: 58px; height: 58px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.finding { display: flex; gap: 12px; margin-top: 14px; align-items: baseline; }
+.sev { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; flex-shrink: 0; }
+.sev.High { background: #FBE3D6; color: #9C3A06; }
+.sev.Med, .sev.Medium { background: #FFF3D6; color: #8A6400; }
+.sev.Low { background: #E2EEE4; color: #2F6B3C; }
+.finding p { margin: 0; font-size: 14px; line-height: 1.6; }
+.finding p b { font-weight: 600; }
+
+.rail { margin-top: 34px; display: flex; gap: 0; overflow-x: auto; padding-bottom: 6px; }
+.rail-phase { flex: 1; min-width: 170px; position: relative; padding: 0 14px 0 0; opacity: 0; animation: railIn 0.5s ease forwards; }
+.rail-phase:nth-child(1) { animation-delay: 0.05s; }
+.rail-phase:nth-child(2) { animation-delay: 0.2s; }
+.rail-phase:nth-child(3) { animation-delay: 0.35s; }
+.rail-phase:nth-child(4) { animation-delay: 0.5s; }
+.rail-phase:nth-child(5) { animation-delay: 0.65s; }
+@keyframes railIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+.rail-line { height: 3px; background: var(--ink); position: relative; margin-bottom: 14px; }
+.rail-phase:last-child .rail-line { background: linear-gradient(90deg, var(--ink) 60%, transparent); }
+.rail-dot { position: absolute; left: 0; top: -7px; width: 17px; height: 17px; border-radius: 50%; background: var(--paper); border: 3px solid var(--signal); box-shadow: 0 0 0 4px rgba(232,89,12,0.15); }
+.rail-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--signal); letter-spacing: 0.16em; }
+.rail-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; margin: 3px 0 2px; }
+.rail-dur { font-size: 12.5px; color: var(--ink-soft); }
+
+.section { margin-top: 42px; }
+.sechead { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 7px; margin-bottom: 4px; }
+.sechead h3 { font-family: 'Space Grotesk', sans-serif; font-size: 21px; margin: 0; }
+.sechead h3::before { content: ""; display: inline-block; width: 9px; height: 9px; background: var(--signal); border-radius: 2px; margin-right: 10px; transform: rotate(45deg) translateY(-2px); }
+.sechead .mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); flex: 1; }
+.reroll {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--rule); border-radius: 3px; color: var(--ink-soft);
+  padding: 5px 10px; cursor: pointer;
+}
+.reroll:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.reroll:disabled { opacity: 0.5; cursor: wait; }
+
+.phasecard { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 20px 22px; margin-top: 16px; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+.phasecard:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(27,42,74,0.12); border-color: var(--signal); }
+@media (prefers-reduced-motion: reduce) { .phasecard { transition: none; } .phasecard:hover { transform: none; } }
+.phasecard .top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.phasecard h4 { font-family: 'Space Grotesk', sans-serif; font-size: 17px; margin: 0; }
+.phasecard h4 .pnum { color: var(--signal); font-family: 'IBM Plex Mono', monospace; font-size: 13px; margin-right: 10px; }
+.phasecard .dur { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-soft); }
+.phasecard .objective { font-size: 14.5px; color: var(--ink-soft); margin: 8px 0 12px; line-height: 1.55; font-style: italic; }
+.phasecard ul { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.75; }
+.phasecard .exit { margin-top: 12px; font-size: 13.5px; }
+.phasecard .exit b { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--signal); font-weight: 500; margin-right: 8px; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; background: var(--panel); }
+th { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--ink); font-weight: 500; }
+td { padding: 11px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; line-height: 1.5; }
+td.raci { font-family: 'IBM Plex Mono', monospace; color: var(--signal); font-weight: 500; }
+
+.racigrid { margin-top: 16px; display: grid; gap: 14px; }
+.racicard { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; }
+.raci-ws { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15.5px; margin-bottom: 12px; }
+.raci-roles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.rolebox { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.rolekey {
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+  width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #FFFFFF;
+}
+.rolebox.r .rolekey { background: var(--signal); }
+.rolebox.a .rolekey { background: var(--ink); }
+.rolebox.c .rolekey { background: #51607E; }
+.rolebox.i .rolekey { background: #9AA3B5; }
+.rolelabel { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); display: block; }
+.rolename { font-size: 13.5px; line-height: 1.45; margin-top: 2px; overflow-wrap: break-word; }
+@media (max-width: 700px) { .raci-roles { grid-template-columns: 1fr 1fr; } }
+
+.risk { border-left: 3px solid var(--signal); padding: 4px 0 4px 16px; margin-top: 16px; }
+.risk .rname { font-weight: 600; font-size: 15px; }
+.risk p { margin: 5px 0 0; font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.risk p b { color: var(--ink); font-weight: 600; }
+
+.qa { margin-top: 20px; }
+.qa-thread { margin-top: 14px; }
+.qa-item { margin-top: 14px; }
+.qa-q { font-weight: 600; font-size: 14.5px; }
+.qa-q::before { content: "Q "; font-family: 'IBM Plex Mono', monospace; color: var(--signal); }
+.qa-a { margin-top: 6px; font-size: 14.5px; line-height: 1.65; color: var(--ink); white-space: pre-wrap; }
+.qa-a::before { content: "A "; font-family: 'IBM Plex Mono', monospace; color: var(--signal); }
+.qa-row { display: flex; gap: 10px; margin-top: 16px; }
+.qa-row input { flex: 1; }
+.qa-row button {
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+  background: var(--ink); color: var(--paper); border: none; border-radius: 4px; padding: 0 20px; cursor: pointer;
+}
+.qa-row button:hover:not(:disabled) { background: var(--signal); }
+.qa-row button:disabled { opacity: 0.55; cursor: wait; }
+
+.about { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule); }
+.about h5 { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 8px; font-weight: 500; }
+.about p { font-size: 13.5px; line-height: 1.65; color: var(--ink-soft); margin: 0; max-width: 680px; }
+.about p.about-second { margin-top: 10px; }
+.about b { color: var(--ink); }
+
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+
+@media print {
+  .app { background: #fff !important; padding: 0; }
+  .masthead, .panel, .loading, .qa, .toolbtns, .reroll, .btnrow, .shelf, .edithint { display: none !important; }
+  .report { box-shadow: none; padding: 0; margin-top: 0; }
+  .rail-phase { opacity: 1 !important; animation: none !important; }
+}
+`;
+
+async function callClaude(prompt, expectJson = true) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || "API request failed");
+  const text = (data.content || []).map(b => b.text || "").join("\n");
+  if (!expectJson) return text.trim();
+  const clean = text.replace(/```json|```/g, "").trim();
+  if (data.stop_reason === "max_tokens") throw new Error("Response was cut off — run it again");
+  return JSON.parse(clean);
+}
+
+const planPrompt = (product, industry, segment, timeline, context) => `You are a senior implementation project manager. Generate a phased implementation plan.
+
+INPUTS
+Product/service: ${product}
+Industry: ${industry}
+Customer segment: ${segment}
+Target timeline: ${timeline}
+Additional context: ${context || "None"}
+
+Respond ONLY with valid JSON, no markdown fences, no preamble. CRITICAL: keep every field extremely terse (5-12 words max per string, except executive_summary). Exactly this shape:
+{"plan_title":"<short title>","executive_summary":"<2 sentences: approach + critical success factor>","phases":[{"name":"<2-3 words>","duration":"<e.g. Wk 1-2>","objective":"<one short sentence>","key_activities":["<terse>","<terse>","<terse>"],"exit_criteria":"<short phrase>"}],"raci":[{"workstream":"<short>","responsible":"<role>","accountable":"<role>","consulted":"<role>","informed":"<role>"}],"risks":[{"risk":"<short>","impact":"<2-4 words>","mitigation":"<short phrase>"}],"comms_cadence":[{"meeting":"<short>","frequency":"<e.g. Weekly>","audience":"<short>"}]}
+
+Rules: exactly 4 phases scaled to ${timeline}. Exactly 4 RACI rows. Exactly 3 risks. Exactly 3 comms entries. Tailor to the product, industry, and segment. Compact JSON, no extra whitespace.`;
+
+function Editable({ value, onSave, className, ariaLabel }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  if (!editing) {
+    return <span className={`editable ${className || ""}`} title="Click to edit" onClick={() => setEditing(true)}>{value}</span>;
+  }
+  const commit = () => { setEditing(false); if (v.trim() && v !== value) onSave(v.trim()); else setV(value); };
+  return (
+    <input
+      className="editinput" autoFocus value={v} aria-label={ariaLabel || "Edit text"}
+      onChange={e => setV(e.target.value)} onBlur={commit}
+      onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setV(value); setEditing(false); } }}
+    />
+  );
+}
+
+export default function ImplementationPlanGenerator() {
+  const [industry, setIndustry] = useState("Logistics / Supply chain");
+  const [productChoice, setProductChoice] = useState(PRODUCTS_BY_INDUSTRY["Logistics / Supply chain"][0]);
+  const [productCustom, setProductCustom] = useState("");
+  const [segment, setSegment] = useState("Mid-market");
+  const [timeline, setTimeline] = useState("90 days");
+  const [constraintChoice, setConstraintChoice] = useState("None");
+  const [constraintCustom, setConstraintCustom] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadIdx, setLoadIdx] = useState(0);
+  const [plan, setPlan] = useState(SAMPLE_PLAN);
+  const [planMeta, setPlanMeta] = useState("Sample plan — generate your own above");
+  const [isSample, setIsSample] = useState(true);
+  const [error, setError] = useState(null);
+  const [rerolling, setRerolling] = useState(null);
+  const [question, setQuestion] = useState("");
+  const [qaThread, setQaThread] = useState([]);
+  const [asking, setAsking] = useState(false);
+  const [critique, setCritique] = useState(null);
+  const [critiquing, setCritiquing] = useState(false);
+  const [savedPlans, setSavedPlans] = useState([]);
+  const [copied, setCopied] = useState(false);
+
+  const copyMarkdown = async () => {
+    const md = [
+      `# ${plan.plan_title}`,
+      `_${isSample ? "Sample plan" : planMeta}_`,
+      ``,
+      `## Executive Summary`,
+      plan.executive_summary,
+      ``,
+      `## Phases`,
+      ...plan.phases.map((p, i) => [
+        `### ${i + 1}. ${p.name} (${p.duration})`,
+        `*${p.objective}*`,
+        ...p.key_activities.map(a => `- ${a}`),
+        `**Exit criteria:** ${p.exit_criteria}`,
+        ``,
+      ].join("\n")),
+      `## RACI`,
+      `| Workstream | R | A | C | I |`,
+      `| --- | --- | --- | --- | --- |`,
+      ...plan.raci.map(r => `| ${r.workstream} | ${r.responsible} | ${r.accountable} | ${r.consulted} | ${r.informed} |`),
+      ``,
+      `## Risk Register`,
+      ...plan.risks.map(r => `- **${r.risk}** — Impact: ${r.impact}. Mitigation: ${r.mitigation}`),
+      ``,
+      `## Comms Cadence`,
+      `| Meeting | Frequency | Audience |`,
+      `| --- | --- | --- |`,
+      ...plan.comms_cadence.map(c => `| ${c.meeting} | ${c.frequency} | ${c.audience} |`),
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(md);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = md; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const isCustomProduct = productChoice === CUSTOM_OPTION;
+  const isCustomConstraint = constraintChoice.startsWith("Custom");
+  const product = isCustomProduct ? productCustom : productChoice;
+  const context = isCustomConstraint ? constraintCustom : (constraintChoice === "None" ? "" : constraintChoice);
+
+  const changeIndustry = (newIndustry) => {
+    setIndustry(newIndustry);
+    setProductChoice(productsFor(newIndustry)[0]);
+    setProductCustom("");
+    setConstraintChoice("None");
+    setConstraintCustom("");
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await window.storage.get("saved-plans");
+        if (result && result.value) setSavedPlans(JSON.parse(result.value));
+      } catch (e) { /* no saved plans yet */ }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) return;
+    const t = setInterval(() => setLoadIdx(i => (i + 1) % LOADING_LINES.length), 2200);
+    return () => clearInterval(t);
+  }, [loading]);
+
+  const persist = async (plans) => {
+    setSavedPlans(plans);
+    try { await window.storage.set("saved-plans", JSON.stringify(plans)); }
+    catch (e) { console.error("Storage save failed", e); }
+  };
+
+  const savePlan = (p, meta) => {
+    const entry = { id: Date.now().toString(36), title: p.plan_title, meta, plan: p };
+    persist([entry, ...savedPlans].slice(0, 8));
+  };
+
+  const updateSavedIfCurrent = (newPlan) => {
+    if (isSample) return;
+    const idx = savedPlans.findIndex(s => s.title === plan.plan_title || s.title === newPlan.plan_title);
+    if (idx >= 0) {
+      const next = [...savedPlans];
+      next[idx] = { ...next[idx], title: newPlan.plan_title, plan: newPlan };
+      persist(next);
+    }
+  };
+
+  const setPlanAndSync = (updater) => {
+    setPlan(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      updateSavedIfCurrent(next);
+      return next;
+    });
+  };
+
+  const loadPlan = (entry) => {
+    setPlan(entry.plan); setPlanMeta(entry.meta); setIsSample(false);
+    setCritique(null); setQaThread([]); setError(null);
+  };
+
+  const deletePlan = (e, id) => {
+    e.stopPropagation();
+    persist(savedPlans.filter(s => s.id !== id));
+  };
+
+  const startNew = () => {
+    setPlan(null); setPlanMeta(""); setIsSample(false);
+    setCritique(null); setQaThread([]); setQuestion(""); setError(null);
+    setIndustry("Logistics / Supply chain");
+    setProductChoice(PRODUCTS_BY_INDUSTRY["Logistics / Supply chain"][0]); setProductCustom("");
+    setSegment("Mid-market");
+    setTimeline("90 days"); setConstraintChoice("None"); setConstraintCustom("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const generate = async () => {
+    if (!product.trim()) { setError("Describe your custom implementation, or pick one from the list."); return; }
+    setLoading(true); setError(null); setQaThread([]); setCritique(null);
+    try {
+      const result = await callClaude(planPrompt(product, industry, segment, timeline, context));
+      const meta = `${industry} · ${segment} · ${timeline}`;
+      setPlan(result); setPlanMeta(meta); setIsSample(false);
+      savePlan(result, meta);
+    } catch (e) {
+      setError(`Plan generation failed: ${e.message}. Run it again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reroll = async (section) => {
+    setRerolling(section); setError(null);
+    const shapes = {
+      risks: '{"risks":[{"risk":"<short>","impact":"<2-4 words>","mitigation":"<short phrase>"}]} with exactly 3 risks, different from: ' + JSON.stringify(plan.risks),
+      raci: '{"raci":[{"workstream":"<short>","responsible":"<role>","accountable":"<role>","consulted":"<role>","informed":"<role>"}]} with exactly 4 rows',
+      comms_cadence: '{"comms_cadence":[{"meeting":"<short>","frequency":"<e.g. Weekly>","audience":"<short>"}]} with exactly 3 entries',
+    };
+    try {
+      const result = await callClaude(`You are a senior implementation PM. For this implementation: ${plan.plan_title} (${planMeta}). Regenerate ONLY this section with a fresh take. Respond ONLY with valid JSON, terse fields, shape: ${shapes[section]}`);
+      setPlanAndSync(p => ({ ...p, [section]: result[section] }));
+    } catch (e) {
+      setError(`Couldn't refresh that section: ${e.message}`);
+    } finally {
+      setRerolling(null);
+    }
+  };
+
+  const runCritique = async () => {
+    setCritiquing(true); setError(null);
+    try {
+      const result = await callClaude(`You are a PMO quality reviewer auditing an implementation plan against PMI-style best practice. Plan JSON: ${JSON.stringify(plan)}
+
+Respond ONLY with valid JSON, terse fields: {"score":<integer 0-100, be honest not generous>,"findings":[{"severity":"High|Med|Low","finding":"<what's missing or weak, 5-12 words>","fix":"<concrete fix, 5-12 words>"}]} with exactly 3 findings, most severe first.`);
+      setCritique(result);
+    } catch (e) {
+      setError(`Critique failed: ${e.message}. Try again.`);
+    } finally {
+      setCritiquing(false);
+    }
+  };
+
+  const ask = async () => {
+    const q = question.trim();
+    if (!q) return;
+    setAsking(true); setError(null); setQuestion("");
+    try {
+      const answer = await callClaude(`You are a senior implementation PM. Here is the current implementation plan as JSON: ${JSON.stringify(plan)}
+
+The stakeholder asks: "${q}"
+
+Answer in 2-4 short sentences, plain text, no JSON, no markdown. Be specific to this plan.`, false);
+      setQaThread(t => [...t, { q, a: answer }]);
+    } catch (e) {
+      setError(`Question failed: ${e.message}`);
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const updPhase = (i, field, val) => setPlanAndSync(p => {
+    const phases = p.phases.map((ph, j) => j === i ? { ...ph, [field]: val } : ph);
+    return { ...p, phases };
+  });
+  const updActivity = (i, j, val) => setPlanAndSync(p => {
+    const phases = p.phases.map((ph, k) => k === i ? { ...ph, key_activities: ph.key_activities.map((a, m) => m === j ? val : a) } : ph);
+    return { ...p, phases };
+  });
+  const updRaci = (i, field, val) => setPlanAndSync(p => ({ ...p, raci: p.raci.map((r, j) => j === i ? { ...r, [field]: val } : r) }));
+  const updRisk = (i, field, val) => setPlanAndSync(p => ({ ...p, risks: p.risks.map((r, j) => j === i ? { ...r, [field]: val } : r) }));
+  const updComms = (i, field, val) => setPlanAndSync(p => ({ ...p, comms_cadence: p.comms_cadence.map((c, j) => j === i ? { ...c, [field]: val } : c) }));
+
+  return (
+    <div className="app">
+      <style>{css}</style>
+      <div className="wrap">
+        <header className="masthead">
+          <div className="eyebrow">AI Implementation Planner</div>
+          <h1 className="title">From kickoff to go-live, in <span className="hl">one pass.</span></h1>
+          <p className="subtitle">Describe any product and customer. This agent drafts the full implementation blueprint — then lets you edit, audit, and pressure-test it like a real PM deliverable.</p>
+          <div className="usecase">
+            <span className="uc-label">What it's for</span>
+            <p>Built for implementation and delivery teams who need a credible first-draft plan in minutes, not days. Use it to frame a kickoff conversation, sanity-check scope before a sales handover, or pressure-test an existing rollout against a structured baseline. Every plan follows phase-gate methodology: defined exit criteria, clear ownership, ranked risks, and a governance rhythm.</p>
+          </div>
+        </header>
+
+        <div className="panel">
+          <div className="grid2">
+            <div className="field full">
+              <label htmlFor="industry">Industry</label>
+              <select id="industry" value={industry} onChange={e => changeIndustry(e.target.value)}>
+                {MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="field full">
+              <label htmlFor="product">What's being implemented?</label>
+              <select id="product" value={productChoice} onChange={e => setProductChoice(e.target.value)}>
+                {productsFor(industry).map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              {isCustomProduct && (
+                <input style={{ marginTop: "10px" }} type="text" value={productCustom} onChange={e => setProductCustom(e.target.value)} placeholder="e.g. Warehouse management system for a 3PL with 4 distribution centers" aria-label="Custom product description" />
+              )}
+            </div>
+            <div className="field">
+              <label htmlFor="segment">Customer segment</label>
+              <select id="segment" value={segment} onChange={e => setSegment(e.target.value)}>
+                {SEGMENTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <div className="hint" aria-live="polite">{SEGMENT_INFO[segment]}</div>
+            </div>
+            <div className="field">
+              <label htmlFor="timeline">Target timeline</label>
+              <select id="timeline" value={timeline} onChange={e => setTimeline(e.target.value)}>
+                {TIMELINES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="context">Constraints or context</label>
+              <select id="context" value={constraintChoice} onChange={e => setConstraintChoice(e.target.value)}>
+                {constraintsFor(industry).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {isCustomConstraint && (
+                <input style={{ marginTop: "10px" }} type="text" value={constraintCustom} onChange={e => setConstraintCustom(e.target.value)} placeholder="e.g. Hard go-live before peak season; limited customer IT resources" aria-label="Custom constraint" />
+              )}
+            </div>
+          </div>
+          <div className="btnrow">
+            <button className="go" onClick={generate} disabled={loading}>
+              {loading ? "Drafting the blueprint..." : "Generate implementation plan"}
+            </button>
+            <button className="go secondary" onClick={startNew} disabled={loading}>
+              Start new
+            </button>
+          </div>
+          {error && <div className="error">{error}</div>}
+        </div>
+
+        {savedPlans.length > 0 && (
+          <div className="shelf">
+            <span className="shelf-label">My plans</span>
+            {savedPlans.map(s => (
+              <span className="chip" key={s.id} onClick={() => loadPlan(s)} role="button" tabIndex={0}
+                onKeyDown={e => { if (e.key === "Enter") loadPlan(s); }}>
+                <span className="t">{s.title}</span>
+                <button className="x" aria-label={`Delete ${s.title}`} onClick={e => deletePlan(e, s.id)}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {loading && (
+          <>
+            <div className="loading">
+              <span className="tick" />
+              <span className="loadline">{LOADING_LINES[loadIdx]}</span>
+            </div>
+            <div className="skeleton" aria-hidden="true">
+              <div className="sk h1" />
+              <div className="sk line" />
+              <div className="sk line short" />
+              <div className="sk block" />
+              <div className="sk block" />
+            </div>
+          </>
+        )}
+
+        {plan && !loading && (
+          <main className="report">
+            <div className="toolbar">
+              <div className="planhead">
+                <h2><Editable value={plan.plan_title} onSave={v => setPlanAndSync(p => ({ ...p, plan_title: v }))} ariaLabel="Edit plan title" /></h2>
+                <div className="meta">{isSample ? "Sample plan — generate your own above" : planMeta}</div>
+              </div>
+              <div className="toolbtns">
+                <button className="toolbtn" onClick={runCritique} disabled={critiquing}>{critiquing ? "Auditing..." : "Critique plan"}</button>
+                <button className="toolbtn" onClick={copyMarkdown}>{copied ? "Copied!" : "Copy Markdown"}</button>
+                <button className="toolbtn" onClick={() => window.print()}>Export / Print</button>
+              </div>
+            </div>
+            <p className="summary"><Editable value={plan.executive_summary} onSave={v => setPlanAndSync(p => ({ ...p, executive_summary: v }))} ariaLabel="Edit executive summary" /></p>
+            <div className="edithint"><b>Tip</b> — click any text in this plan to edit it. Changes save automatically.</div>
+
+            {critique && (
+              <div className="critique">
+                <div className="chead">
+                  <div className="scorering">{critique.score}</div>
+                  <h4>PMO quality review</h4>
+                </div>
+                {critique.findings.map((f, i) => (
+                  <div className="finding" key={i}>
+                    <span className={`sev ${f.severity}`}>{f.severity}</span>
+                    <p><b>{f.finding}</b> — {f.fix}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="rail" aria-label="Phase timeline" key={plan.plan_title}>
+              {plan.phases.map((p, i) => (
+                <div className="rail-phase" key={i}>
+                  <div className="rail-line"><span className="rail-dot" /></div>
+                  <div className="rail-num">PHASE {String(i + 1).padStart(2, "0")}</div>
+                  <div className="rail-name">{p.name}</div>
+                  <div className="rail-dur">{p.duration}</div>
+                </div>
+              ))}
+            </div>
+
+            <section className="section">
+              <div className="sechead"><h3>Phase Detail</h3><span className="mono">Activities & exit criteria</span></div>
+              {plan.phases.map((p, i) => (
+                <div className="phasecard" key={i}>
+                  <div className="top">
+                    <h4><span className="pnum">{String(i + 1).padStart(2, "0")}</span><Editable value={p.name} onSave={v => updPhase(i, "name", v)} ariaLabel="Edit phase name" /></h4>
+                    <span className="dur"><Editable value={p.duration} onSave={v => updPhase(i, "duration", v)} ariaLabel="Edit duration" /></span>
+                  </div>
+                  <p className="objective"><Editable value={p.objective} onSave={v => updPhase(i, "objective", v)} ariaLabel="Edit objective" /></p>
+                  <ul>{p.key_activities.map((a, j) => <li key={j}><Editable value={a} onSave={v => updActivity(i, j, v)} ariaLabel="Edit activity" /></li>)}</ul>
+                  <div className="exit"><b>Exit criteria</b><Editable value={p.exit_criteria} onSave={v => updPhase(i, "exit_criteria", v)} ariaLabel="Edit exit criteria" /></div>
+                </div>
+              ))}
+            </section>
+
+            <section className="section">
+              <div className="sechead">
+                <h3>RACI</h3><span className="mono">Who owns what</span>
+                <button className="reroll" onClick={() => reroll("raci")} disabled={!!rerolling}>{rerolling === "raci" ? "Re-rolling..." : "Re-roll"}</button>
+              </div>
+              <div className="racigrid">
+                {plan.raci.map((r, i) => (
+                  <div className="racicard" key={i}>
+                    <div className="raci-ws"><Editable value={r.workstream} onSave={v => updRaci(i, "workstream", v)} /></div>
+                    <div className="raci-roles">
+                      <div className="rolebox r">
+                        <span className="rolekey">R</span>
+                        <div><span className="rolelabel">Responsible</span><div className="rolename"><Editable value={r.responsible} onSave={v => updRaci(i, "responsible", v)} /></div></div>
+                      </div>
+                      <div className="rolebox a">
+                        <span className="rolekey">A</span>
+                        <div><span className="rolelabel">Accountable</span><div className="rolename"><Editable value={r.accountable} onSave={v => updRaci(i, "accountable", v)} /></div></div>
+                      </div>
+                      <div className="rolebox c">
+                        <span className="rolekey">C</span>
+                        <div><span className="rolelabel">Consulted</span><div className="rolename"><Editable value={r.consulted} onSave={v => updRaci(i, "consulted", v)} /></div></div>
+                      </div>
+                      <div className="rolebox i">
+                        <span className="rolekey">I</span>
+                        <div><span className="rolelabel">Informed</span><div className="rolename"><Editable value={r.informed} onSave={v => updRaci(i, "informed", v)} /></div></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="section">
+              <div className="sechead">
+                <h3>Risk Register</h3><span className="mono">Top exposures, ranked</span>
+                <button className="reroll" onClick={() => reroll("risks")} disabled={!!rerolling}>{rerolling === "risks" ? "Re-rolling..." : "Re-roll"}</button>
+              </div>
+              {plan.risks.map((r, i) => (
+                <div className="risk" key={i}>
+                  <div className="rname"><Editable value={r.risk} onSave={v => updRisk(i, "risk", v)} /></div>
+                  <p><b>Impact:</b> <Editable value={r.impact} onSave={v => updRisk(i, "impact", v)} /> · <b>Mitigation:</b> <Editable value={r.mitigation} onSave={v => updRisk(i, "mitigation", v)} /></p>
+                </div>
+              ))}
+            </section>
+
+            <section className="section">
+              <div className="sechead">
+                <h3>Comms Cadence</h3><span className="mono">Governance rhythm</span>
+                <button className="reroll" onClick={() => reroll("comms_cadence")} disabled={!!rerolling}>{rerolling === "comms_cadence" ? "Re-rolling..." : "Re-roll"}</button>
+              </div>
+              <table>
+                <thead><tr><th>Meeting</th><th>Frequency</th><th>Audience</th></tr></thead>
+                <tbody>
+                  {plan.comms_cadence.map((c, i) => (
+                    <tr key={i}>
+                      <td><Editable value={c.meeting} onSave={v => updComms(i, "meeting", v)} /></td>
+                      <td><Editable value={c.frequency} onSave={v => updComms(i, "frequency", v)} /></td>
+                      <td><Editable value={c.audience} onSave={v => updComms(i, "audience", v)} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="section qa">
+              <div className="sechead"><h3>Ask the Planner</h3><span className="mono">Pressure-test this plan</span></div>
+              <div className="qa-thread">
+                {qaThread.map((item, i) => (
+                  <div className="qa-item" key={i}>
+                    <div className="qa-q">{item.q}</div>
+                    <div className="qa-a">{item.a}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="qa-row">
+                <input type="text" value={question} onChange={e => setQuestion(e.target.value)} onKeyDown={e => { if (e.key === "Enter") ask(); }} placeholder="e.g. What if the timeline slips to 6 months?" aria-label="Ask a question about this plan" />
+                <button onClick={ask} disabled={asking || !question.trim()}>{asking ? "Thinking..." : "Ask"}</button>
+              </div>
+            </section>
+
+            <div className="about">
+              <h5>About the builder</h5>
+              <p><b>Aleksandr Shusterman, PMP, CSM.</b> Senior implementation project manager with 10+ years delivering complex rollouts in global logistics and healthcare operations, currently leading North America implementations at A.P. Moller Maersk across ocean, air, e-commerce, and ground freight. Microsoft Azure AI certified.</p>
+              <p className="about-second">I built this agent to put real delivery methodology into AI: phase gates, clear ownership, honest risk registers. The same discipline I bring to every go-live. <b>LinkedIn: linkedin.com/in/aleksandr-shusterman-61326374</b></p>
+            </div>
+          </main>
+        )}
+      </div>
+    </div>
+  );
+}

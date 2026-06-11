@@ -2,7 +2,7 @@
 
 An AI agent that drafts complete, phase-gated implementation plans the way a senior project manager would. Built by [Aleksandr Shusterman](https://www.linkedin.com/in/aleksandr-shusterman-61326374), PMP, CSM.
 
-**[Live demo →](YOUR_CLAUDE_SITE_LINK_HERE)**
+**[Live demo →](https://claude.ai/public/artifacts/5f52607b-5ecc-412c-a139-c49c01fb7907)**
 
 ## What it does
 
